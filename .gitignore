@@ -3,6 +3,9 @@ JD.ipynb
 lightning_logs/
 model.pt
 .DS_Store
+requirements.txt
+
+
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode
 
