@@ -178,14 +178,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default='klue/roberta-small', type=str)
     parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--max_epoch', default=2, type=int)
+    parser.add_argument('--max_epoch', default=100, type=int)
     parser.add_argument('--shuffle', default=True)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
     parser.add_argument('--train_path', default='./data/train.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/dev.csv')
     parser.add_argument('--predict_path', default='./data/test.csv')
-    args = parser.parse_args(args=[])
+    args = parser.parse_args()
 
     # dataloader와 model을 생성합니다
     dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
@@ -204,9 +204,3 @@ if __name__ == '__main__':
     # 학습이 완료된 모델을 저장합니다.
     torch.save(model, './output/model.pt')
 
-# home_path = "/opt/ml"
-# train_path = os.path.join(home_path, "data/train.csv")
-# dev_path = os.path.join(home_path, "data/dev.csv")
-# test_path = os.path.join(home_path, "data/train.csv")
-# predict_path = os.path.join(home_path, "data/train.csv")
-# model_path = os.path.join(home_path, "data/train.csv")
