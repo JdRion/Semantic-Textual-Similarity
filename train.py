@@ -8,7 +8,9 @@ import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
-
+import wandb
+from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
@@ -186,8 +188,10 @@ if __name__ == '__main__':
                             args.test_path, args.predict_path)
     model = Model(args.model_name, args.learning_rate)
 
+    wandb_logger = WandbLogger(project="sts")
+
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1)
+    trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1,logger=wandb_logger,callbacks=[EarlyStopping(monitor="val_loss", mode="min")])
 
     # Train part
     trainer.fit(model=model, datamodule=dataloader)
