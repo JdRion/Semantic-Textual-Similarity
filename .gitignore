@@ -2,3 +2,6 @@
 lightning_logs
 *.pt
 *.yaml
+wandb
+sts
+sts1
