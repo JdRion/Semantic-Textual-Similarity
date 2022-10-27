@@ -13,6 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import os
 from pytorch_lightning.callbacks import ModelCheckpoint
+import re
 from datetime import timedelta, datetime
 time_ = datetime.now() + timedelta(hours=9)
 time_now = time_.strftime("%m%d%H%M")
@@ -196,6 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_project', default='sts')
     parser.add_argument('--wandb_entity', default='sts_et')
     parser.add_argument('--hyppamtun', default=False)
+    parser.add_argument('--hypcnt', default=5)
     args = parser.parse_args()
     os.environ["WANDB_API_KEY"] = wandb_dict[args.wandb_username]
     if args.hyppamtun:
@@ -233,11 +235,58 @@ if __name__ == '__main__':
         sweep_id = wandb.sweep(
             sweep=sweep_config,     # config 딕셔너리를 추가합니다.
             project=args.wandb_project,# project의 이름을 추가합니다.
-
         )
         wandb.agent(
             sweep_id=sweep_id,      # sweep의 정보를 입력하고
             function=sweep_train,   # train이라는 모델을 학습하는 코드를
-            count=3                # 총 5회 실행해봅니다.
+            count=args.hypcnt                # 총 5회 실행해봅니다.
         )
-    #torch.save(model, 'model.pt')
+    else:
+        model_name_ch = re.sub('/','_',args.model_name)
+        wandb_logger = WandbLogger(
+                log_model="all",
+                name=f'{model_name_ch}_{args.batch_size}_{args.learning_rate}_{time_now}',
+                project=args.wandb_project,
+                entity=args.wandb_entity,
+                )
+    
+    #val_acc 높아지지 않으면 log 기록 x
+    # wandb_logger = WandbLogger(log_model="all")
+    # checkpoint_callback = ModelCheckpoint(monitor="val_accuracy", mode="max")
+
+    # Checkpoint
+        checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                        save_top_k=3,
+                                        save_last=True,
+                                        save_weights_only=True,
+                                        verbose=False,
+                                        mode='min')
+
+    # Earlystopping
+        earlystopping = EarlyStopping(monitor='val_loss', patience=4, mode='min')
+    
+    # dataloader와 model을 생성합니다.
+        dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
+                            args.test_path, args.predict_path)
+        model = Model(args.model_name, args.learning_rate)
+
+    # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
+        trainer = pl.Trainer(
+            gpus=-1, 
+            max_epochs=args.max_epoch, 
+            log_every_n_steps=1,
+            logger=wandb_logger,    # W&B integration
+            callbacks = [checkpoint_callback, earlystopping]
+        )
+
+    # Train part
+        trainer.fit(model=model, datamodule=dataloader)
+        trainer.test(model=model, datamodule=dataloader)
+
+    # 학습이 완료된 모델을 저장합니다.
+        output_dir_path = 'output'
+        if not os.path.exists(output_dir_path):
+            os.makedirs(output_dir_path)
+
+        output_path = os.path.join(output_dir_path, f'{model_name_ch}_{time_now}_model.pt')
+        torch.save(model, output_path)
