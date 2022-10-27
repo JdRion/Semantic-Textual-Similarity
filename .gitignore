@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 key
 JD.ipynb
 lightning_logs/
@@ -192,3 +193,7 @@ cython_debug/
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
+=======
+README.md
+key
+>>>>>>> 12ff2ad62a9b9e7d6aac130fb72368d9f6eb7534

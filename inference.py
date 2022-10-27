@@ -1,14 +1,15 @@
 import argparse
 
 import pandas as pd
-
+import re
 from tqdm.auto import tqdm
 
 import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
-
+import os
+os.chdir('/opt/ml')
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
@@ -190,7 +191,14 @@ if __name__ == '__main__':
 
     # Inference part
     # 저장된 모델로 예측을 진행합니다.
-    model = torch.load('model.pt')
+    
+    model_name_ch = re.sub('/','_',args.model_name)
+
+    
+    output_dir_path = 'output'
+    output_path = os.path.join(output_dir_path, f'{model_name_ch}_{args.time_now}_model.pt')
+
+    model = torch.load(output_path)
     predictions = trainer.predict(model=model, datamodule=dataloader)
 
     # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.
@@ -199,4 +207,10 @@ if __name__ == '__main__':
     # output 형식을 불러와서 예측된 결과로 바꿔주고, output.csv로 출력합니다.
     output = pd.read_csv('../data/sample_submission.csv')
     output['target'] = predictions
-    output.to_csv('output.csv', index=False)
+    
+    result_dir_path = 'result'
+    if not os.path.exists(result_dir_path):
+        os.makedirs(result_dir_path)
+    
+    result_path = os.path.join(result_dir_path, 'output.csv')
+    output.to_csv(result_path, index=False)
