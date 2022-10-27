@@ -4,7 +4,8 @@ lightning_logs/
 model.pt
 .DS_Store
 requirements.txt
-
+sts
+wandb
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode
