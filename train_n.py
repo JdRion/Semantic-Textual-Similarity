@@ -126,18 +126,17 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name, lr):
+    def __init__(self, model_name, lr, loss):
         super().__init__()
         self.save_hyperparameters()
 
         self.model_name = model_name
         self.lr = lr
-
+        self.loss_func = loss
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.L1Loss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -198,6 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_entity', default='sts_et')
     parser.add_argument('--hyppamtun', default=False)
     parser.add_argument('--hypcnt', default=5)
+    parser.add_argument('--loss_func', default=torch.nn.MSELoss())
     args = parser.parse_args()
     os.environ["WANDB_API_KEY"] = wandb_dict[args.wandb_username]
     if args.hyppamtun:
@@ -277,7 +277,7 @@ if __name__ == '__main__':
             log_every_n_steps=1,
             logger=wandb_logger,    # W&B integration
             callbacks = [checkpoint_callback, earlystopping]
-        )
+            )
 
     # Train part
         trainer.fit(model=model, datamodule=dataloader)
