@@ -1,20 +1,18 @@
 import argparse
-
+import os
+from xml.dom.minidom import Entity
 import pandas as pd
-
 from tqdm.auto import tqdm
-
+from datetime import timedelta, datetime
+import wandb
 import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
-import os
-import wandb
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import re
-from datetime import timedelta, datetime
 
 os.chdir("/opt/ml")
 wandb_dict = {
@@ -202,24 +200,9 @@ if __name__ == '__main__':
     parser.add_argument('--wandb_entity', default='sts_et')
     args = parser.parse_args()
     print(args)
-    # dataloader와 model을 생성합니다
-    dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
-                            args.test_path, args.predict_path)
-    # Checkpoint
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                        save_top_k=3,
-                                        save_last=True,
-                                        save_weights_only=True,
-                                        verbose=False,
-                                        mode='min')
-
-    # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
-    
-    model = Model(args.model_name, args.learning_rate)
-    model_name_ch = re.sub('/','_',args.model_name)
     # wandb logger 설정
     os.environ["WANDB_API_KEY"] = wandb_dict[args.wandb_username]
+    model_name_ch = re.sub('/','_',args.model_name)
     wandb_logger = WandbLogger(project="sts")
     wandb_logger = WandbLogger(
                 log_model="all",
@@ -227,9 +210,28 @@ if __name__ == '__main__':
                 project=args.wandb_project,
                 entity=args.wandb_entity,
                 )
+    # Checkpoint
+    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                        save_top_k=3,
+                                        save_last=True,
+                                        save_weights_only=True,
+                                        verbose=False,
+                                        mode='min')
+    # Earlystopping
+    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+    # dataloader와 model을 생성합니다
+    dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
+                            args.test_path, args.predict_path)
+    model = Model(args.model_name, args.learning_rate)
+    
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1, logger=wandb_logger, callbacks=[EarlyStopping(monitor="val_pearson", mode="min")])
-
+    trainer = pl.Trainer(
+        gpus=-1, 
+        max_epochs=args.max_epoch, 
+        log_every_n_steps=1,
+        logger=wandb_logger,    # W&B integration
+        callbacks = [checkpoint_callback, earlystopping]
+        )
     # Train part
     trainer.fit(model=model, datamodule=dataloader)
     trainer.test(model=model, datamodule=dataloader)
