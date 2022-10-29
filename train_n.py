@@ -215,20 +215,20 @@ if __name__ == '__main__':
         'optimizer': {
              'values': ['adam', 'adamw']
         }
-    },
-    'name' : f'{args.model_name}_{args.batch_size}_{args.learning_rate}_{time_now}',
-    'metric':{'name':'val_pearson', 'goal':'maximize'},
-    'early_terminate' : {'type' : 'hyperband', 'max_iter' : 100},
-    "entity" : args.wandb_entity,
-    }
-    # dataloader와 model을 생성합니다.
+        },
+        'name' : f'{args.model_name}_{args.batch_size}_{args.learning_rate}_{time_now}',
+        'metric':{'name':'val_pearson', 'goal':'maximize'},
+        'early_terminate' : {'type' : 'hyperband', 'max_iter' : 100},
+        "entity" : args.wandb_entity,
+        }
+        # dataloader와 model을 생성합니다.
         def sweep_train(config=None):
             wandb.init(config=config)
             config = wandb.config
 
             dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
                             args.test_path, args.predict_path)
-            model = Model(args.model_name, args.learning_rate)
+            model = Model(args.model_name, args.learning_rate, args.loss_func)
             trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1)
             trainer.fit(model=model, datamodule=dataloader)
             trainer.test(model=model, datamodule=dataloader)
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     # dataloader와 model을 생성합니다.
         dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
                             args.test_path, args.predict_path)
-        model = Model(args.model_name, args.learning_rate)
+        model = Model(args.model_name, args.learning_rate, args.loss_func)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
         trainer = pl.Trainer(

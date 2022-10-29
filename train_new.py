@@ -130,7 +130,7 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name, lr):
+    def __init__(self, model_name, lr, loss):
         super().__init__()
         self.save_hyperparameters()
 
@@ -141,7 +141,7 @@ class Model(pl.LightningModule):
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.L1Loss()
+        self.loss_func = loss
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -230,7 +230,7 @@ if __name__ == '__main__':
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
                             args.test_path, args.predict_path)
-    model = Model(args.model_name, args.learning_rate)
+    model = Model(args.model_name, args.learning_rate, args.loss_func)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(
