@@ -203,7 +203,6 @@ if __name__ == '__main__':
     # wandb logger 설정
     os.environ["WANDB_API_KEY"] = wandb_dict[args.wandb_username]
     model_name_ch = re.sub('/','_',args.model_name)
-    wandb_logger = WandbLogger(project="sts")
     wandb_logger = WandbLogger(
                 log_model="all",
                 name=f'{model_name_ch}_{args.batch_size}_{args.learning_rate}_{time_now}',
