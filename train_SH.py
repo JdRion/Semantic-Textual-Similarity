@@ -12,6 +12,7 @@ import os
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
 import re
 from datetime import timedelta, datetime
 
@@ -187,12 +188,12 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='klue/roberta-base', type=str)
+    parser.add_argument('--model_name', default='beomi/KcELECTRA-base', type=str)
     parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--max_epoch', default=100, type=int)
+    parser.add_argument('--max_epoch', default=20, type=int)
     parser.add_argument('--shuffle', default=True)
-    parser.add_argument('--learning_rate', default=2e-5, type=float)
-    parser.add_argument('--train_path', default='./data/e_re10_df.csv')
+    parser.add_argument('--learning_rate', default=1e-5, type=float)
+    parser.add_argument('--train_path', default='./data/e_re20_df.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/dev.csv')
     parser.add_argument('--predict_path', default='./data/test.csv')
@@ -204,6 +205,17 @@ if __name__ == '__main__':
     # dataloader와 model을 생성합니다
     dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
                             args.test_path, args.predict_path)
+    # Checkpoint
+    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
+                                        save_top_k=3,
+                                        save_last=True,
+                                        save_weights_only=True,
+                                        verbose=False,
+                                        mode='min')
+
+    # Earlystopping
+    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+    
     model = Model(args.model_name, args.learning_rate)
     model_name_ch = re.sub('/','_',args.model_name)
     # wandb logger 설정
@@ -228,5 +240,5 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir_path):
         os.makedirs(output_dir_path)
 
-    output_path = os.path.join(output_dir_path, f'{model_name_ch}_model.pt')
+    output_path = os.path.join(output_dir_path, f'{model_name_ch}_{time_now}_model.pt')
     torch.save(model, output_path)
