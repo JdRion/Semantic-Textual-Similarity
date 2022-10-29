@@ -209,5 +209,5 @@ if __name__ == '__main__':
     if not os.path.exists(result_dir_path):
         os.makedirs(result_dir_path)
     
-    result_path = os.path.join(result_dir_path, 'output.csv')
+    result_path = os.path.join(result_dir_path, f'output_{args.time_now}.csv')
     output.to_csv(result_path, index=False)
