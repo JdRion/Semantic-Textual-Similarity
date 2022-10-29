@@ -4,6 +4,9 @@ from xml.dom.minidom import Entity
 import pandas as pd
 from tqdm.auto import tqdm
 from datetime import timedelta, datetime
+
+from omegaconf import OmegaConf
+
 import wandb
 import transformers
 import torch
@@ -14,9 +17,9 @@ import re
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from sentence_transformers import losses
 
-
-os.chdir("/opt/ml")
+# os.chdir("/opt/ml")
 wandb_dict = {
     'gwkim_22':'f631be718175f02da4e2f651225fadb8541b3cd9',
     'rion_':'0d57da7f9222522c1a3dbb645a622000e0344d36',
@@ -83,7 +86,7 @@ class Dataloader(pl.LightningDataModule):
 
         # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
         try:
-            targets = data[self.target_columns].values.tolist()
+            targets = data[self.target_columns].values.tolist() / 5.0
         except:
             targets = []
         # 텍스트 데이터를 전처리합니다.
@@ -117,7 +120,7 @@ class Dataloader(pl.LightningDataModule):
             self.predict_dataset = Dataset(predict_inputs, [])
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=args.shuffle)
+        return torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=cfg.data.shuffle)
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(self.val_dataset, batch_size=self.batch_size)
@@ -130,18 +133,18 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name, lr):
+    def __init__(self, config):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model_name = model_name
-        self.lr = lr
+        self.model_name = config.model.model_name
+        self.lr = config.train.learning_rate
 
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=model_name, num_labels=1)
+            pretrained_model_name_or_path=self.model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.L1Loss()
+        self.loss_func = losses.CosineSimilarityLoss(model=self.plm)
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -188,33 +191,20 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='klue/roberta-small', type=str)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--max_epoch', default=10, type=int)
-    parser.add_argument('--shuffle', default=True)
-    parser.add_argument('--learning_rate', default=1e-5, type=float)
-    parser.add_argument('--train_path', default='./data/train.csv')
-    parser.add_argument('--dev_path', default='./data/dev.csv')
-    parser.add_argument('--test_path', default='./data/dev.csv')
-    parser.add_argument('--predict_path', default='./data/test.csv')
-    parser.add_argument('--wandb_username', default='gwkim_22')
-    parser.add_argument('--wandb_project', default='sts')
-    parser.add_argument('--wandb_entity', default='sts_et')
+    parser.add_argument('--config',type=str,default='base_config')
+    args, _ = parser.parse_known_args()
+    
+    cfg = OmegaConf.load(f'./config/{args.config}.yaml')
 
-    args = parser.parse_args()
-    print(args)
-    os.environ["WANDB_API_KEY"] = wandb_dict[args.wandb_username]
-    model_name_ch = re.sub('/','_',args.model_name)
+    #os.environ["WANDB_API_KEY"] = wandb_dict[cfg.wandb.wandb_username]
+    wandb.login(key = wandb_dict[cfg.wandb.wandb_username])
+    model_name_ch = re.sub('/','_',cfg.model.model_name)
     wandb_logger = WandbLogger(
                 log_model="all",
-                name=f'{model_name_ch}_{args.batch_size}_{args.learning_rate}_{time_now}',
-                project=args.wandb_project,
-                entity=args.wandb_entity,
+                name=f'{model_name_ch}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
+                project=cfg.wandb.wandb_project,
+                entity=cfg.wandb.wandb_entity
                 )
-    
-    #val_acc 높아지지 않으면 log 기록 x
-    # wandb_logger = WandbLogger(log_model="all")
-    # checkpoint_callback = ModelCheckpoint(monitor="val_accuracy", mode="max")
 
     # Checkpoint
     checkpoint_callback = ModelCheckpoint(monitor='val_loss',
@@ -228,15 +218,15 @@ if __name__ == '__main__':
     earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
     
     # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
-                            args.test_path, args.predict_path)
-    model = Model(args.model_name, args.learning_rate)
+    dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
+                            cfg.path.test_path, cfg.path.predict_path)
+    model = Model(cfg)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(
         gpus=-1, 
-        max_epochs=args.max_epoch, 
-        log_every_n_steps=1,
+        max_epochs=cfg.train.max_epoch, 
+        log_every_n_steps=cfg.train.logging_step,
         logger=wandb_logger,    # W&B integration
         callbacks = [checkpoint_callback, earlystopping]
         )
