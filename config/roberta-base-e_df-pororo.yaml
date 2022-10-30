@@ -9,8 +9,8 @@ data:
     augmentation: # adea, bt 등등
     
 model:
-    model_name: klue/roberta-base/e_df
-    saved_name: base_model
+    model_name: klue/roberta-base
+    saved_name: klue/roberta-base/ep_df_11
 
 train:
     seed: 42

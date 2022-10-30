@@ -201,7 +201,7 @@ if __name__ == '__main__':
     model_name_ch = re.sub('/','_',cfg.model.model_name)
     wandb_logger = WandbLogger(
                 log_model="all",
-                name=f'{model_name_ch}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
+                name=f'{cfg.model.saved_name}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
                 project=cfg.wandb.wandb_project,
                 entity=cfg.wandb.wandb_entity
                 )
