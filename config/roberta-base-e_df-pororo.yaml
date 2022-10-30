@@ -1,0 +1,25 @@
+path:
+    train_path: ../data/ep_df_11.csv
+    dev_path: ../data/dev.csv
+    test_path: ../data/dev.csv
+    predict_path: ../data/test.csv
+
+data:
+    shuffle: True
+    augmentation: # adea, bt 등등
+    
+model:
+    model_name: klue/roberta-base/e_df
+    saved_name: base_model
+
+train:
+    seed: 42
+    gpus: 1
+    batch_size: 32
+    max_epoch: 4
+    learning_rate: 2e-5
+    logging_step: 1
+wandb:
+    wandb_username: rion_
+    wandb_project: sts
+    wandb_entity: sts_et
