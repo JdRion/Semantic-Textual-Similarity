@@ -5,3 +5,5 @@ lightning_logs
 wandb
 sts
 sts1
+output
+config
