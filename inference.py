@@ -198,7 +198,7 @@ if __name__ == '__main__':
     
     output_dir_path = 'output'
     # output_path = os.path.join(output_dir_path, f'{model_name_ch}_{args.time_now}_model.pt')
-    output_path = os.path.join(output_dir_path, 'klue_roberta-base_model.pt')
+    output_path = os.path.join(output_dir_path, 'klue_roberta-base_10280151_model.pt')
 
     model = torch.load(output_path)
     predictions = trainer.predict(model=model, datamodule=dataloader)
