@@ -6,14 +6,14 @@ from tqdm.auto import tqdm
 from datetime import timedelta, datetime
 
 from omegaconf import OmegaConf
-
+import torch.nn as nn
 import wandb
 import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
 import re
-
+from sentence_transformers import SentenceTransformer
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -30,7 +30,10 @@ wandb_dict = {
 
 time_ = datetime.now() + timedelta(hours=9)
 time_now = time_.strftime("%m%d%H%M")
-
+def mean_pooling(model_output, attention_mask):
+    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
         self.inputs = inputs
@@ -40,9 +43,9 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # 정답이 있다면 else문을, 없다면 if문을 수행합니다
         if len(self.targets) == 0:
-            return torch.tensor(self.inputs[idx])
+            return [torch.tensor(self.inputs[0][idx]), torch.tensor(self.inputs[1][idx])]
         else:
-            return torch.tensor(self.inputs[idx]), torch.tensor(self.targets[idx])
+            return [torch.tensor(self.inputs[0][idx]), torch.tensor(self.inputs[1][idx])], torch.tensor(self.targets[idx])
 
     # 입력하는 개수만큼 데이터를 사용합니다
     def __len__(self):
@@ -66,19 +69,21 @@ class Dataloader(pl.LightningDataModule):
         self.test_dataset = None
         self.predict_dataset = None
 
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, max_length=160)
+        self.tokenizer = transformers.AutoTokenizer.from_pretrained('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
         self.target_columns = ['label']
         self.delete_columns = ['id']
         self.text_columns = ['sentence_1', 'sentence_2']
 
     def tokenizing(self, dataframe):
-        data = []
+        s1 = []
+        s2 = []
         for idx, item in tqdm(dataframe.iterrows(), desc='tokenizing', total=len(dataframe)):
             # 두 입력 문장을 [SEP] 토큰으로 이어붙여서 전처리합니다.
-            text = '[SEP]'.join([item[text_column] for text_column in self.text_columns])
-            outputs = self.tokenizer(text, add_special_tokens=True, padding='max_length', truncation=True)
-            data.append(outputs['input_ids'])
-        return data
+            s1_outputs = self.tokenizer(item['sentence_1'], add_special_tokens=True, padding='max_length', truncation=True, return_tensors='pt')
+            s2_outputs = self.tokenizer(item['sentence_2'], add_special_tokens=True, padding='max_length', truncation=True, return_tensors='pt')
+            s1.append(s1_outputs)
+            s2.append(s2_outputs)
+        return s1, s2
 
     def preprocessing(self, data):
         # 안쓰는 컬럼을 삭제합니다.
@@ -86,13 +91,14 @@ class Dataloader(pl.LightningDataModule):
 
         # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
         try:
-            targets = data[self.target_columns].values.tolist() / 5.0
+            targets = data[self.target_columns] / 5.0
+            targets = targets.values.tolist()
         except:
             targets = []
         # 텍스트 데이터를 전처리합니다.
         inputs = self.tokenizing(data)
 
-        return inputs, targets
+        return inputs,  targets
 
     def setup(self, stage='fit'):
         if stage == 'fit':
@@ -141,27 +147,36 @@ class Model(pl.LightningModule):
         self.lr = config.train.learning_rate
 
         # 사용할 모델을 호출합니다.
-        self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=self.model_name, num_labels=1)
+        self.plm = transformers.AutoModel.from_pretrained('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = losses.CosineSimilarityLoss(model=self.plm)
-
+        self.loss_func = torch.nn.MSELoss()
+        self.cos_score = nn.Sequential(nn.Identity())
     def forward(self, x):
-        x = self.plm(x)['logits']
+        x = self.plm(x)
 
         return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
+        with torch.no_grad():
+            output_1 = self(**x[0])
+            output_2 = self(**x[1])
+        sentence_embeddings_1 = mean_pooling(output_1, x[0]['attention_mask'])
+        sentence_embeddings_2 = mean_pooling(output_2, x[1]['attention_mask'])
+        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
+        logits = self.cos_score(cos_sim)
         loss = self.loss_func(logits, y.float())
         self.log("train_loss", loss)
-
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
+        output_1 = self(x[0][0])
+        output_2 = self(x[1][0])
+        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
+        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
+        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
+        logits = self.cos_score(cos_sim)
         loss = self.loss_func(logits, y.float())
         self.log("val_loss", loss)
 
@@ -171,14 +186,21 @@ class Model(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        logits = self(x)
-
+        output_1 = self(x[0][0])
+        output_2 = self(x[1][0])
+        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
+        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
+        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
+        logits = self.cos_score(cos_sim)
         self.log("test_pearson", torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze()))
 
     def predict_step(self, batch, batch_idx):
-        x = batch
-        logits = self(x)
-
+        output_1 = self(x[0][0])
+        output_2 = self(x[1][0])
+        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
+        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
+        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
+        logits = self.cos_score(cos_sim)
         return logits.squeeze()
 
     def configure_optimizers(self):
