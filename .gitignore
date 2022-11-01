@@ -1,9 +1,10 @@
 .ipynb_checkpoints
 lightning_logs
-*.pt
 *.yaml
 wandb
 sts
 sts1
 nohup.out
 config
+*.pt
+output

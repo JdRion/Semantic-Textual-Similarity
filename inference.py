@@ -174,7 +174,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_name', default='klue/roberta-small', type=str)
     parser.add_argument('--batch_size', default=16, type=int)
     parser.add_argument('--max_epoch', default=1, type=int)
-    parser.add_argument('--shuffle', default=True)
+    parser.add_argument('--shuffle', default=False)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
     parser.add_argument('--train_path', default='./data/train.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
@@ -193,11 +193,11 @@ if __name__ == '__main__':
     # Inference part
     # 저장된 모델로 예측을 진행합니다.
     
-    model_name_ch = re.sub('/','_',args.model_name)
+    #model_name_ch = re.sub('/','_',args.model_name)
 
     
-    output_dir_path = 'output'
-    output_path = os.path.join(output_dir_path, f'{model_name_ch}_{args.time_now}_model.pt')
+    output_dir_path = '/opt/ml/code/output'
+    output_path = os.path.join(output_dir_path, f'{args.model_name}_{args.time_now}_model.pt')
 
     model = torch.load(output_path)
     predictions = trainer.predict(model=model, datamodule=dataloader)
@@ -209,7 +209,7 @@ if __name__ == '__main__':
     output = pd.read_csv('./data/sample_submission.csv')
     output['target'] = predictions
     
-    result_dir_path = 'result'
+    result_dir_path = 'opt/ml/code/result'
     if not os.path.exists(result_dir_path):
         os.makedirs(result_dir_path)
     
