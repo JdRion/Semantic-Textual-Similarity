@@ -1,10 +1,10 @@
 #!/bin/bash
-CONFIGS=("roberta_back05_config" "roberta_back033_config" "roberta_back025_config" "roberta_back066_config" "roberta_back075_config")
+CONFIGS=("electra_e_no_c_05_df_config" "electra_r02_e_no_c_05_df_config")
 
 config_length=${#CONFIGS[@]}
 
 
-for (( i=0; i<${config_length}; i++ ))
+for (( i=0; i<${config_length}; i++ ));
 do
 
     echo ${CONFIGS[$i]}

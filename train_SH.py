@@ -1,5 +1,4 @@
 import argparse
-import os
 from xml.dom.minidom import Entity
 import pandas as pd
 from tqdm.auto import tqdm
@@ -14,6 +13,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 import re
 
+import os
 os.chdir("/opt/ml")
 wandb_dict = {
     'gwkim_22':'f631be718175f02da4e2f651225fadb8541b3cd9',
@@ -186,12 +186,12 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='klue/roberta-base', type=str)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--max_epoch', default=20, type=int)
+    parser.add_argument('--model_name', default='snunlp/KR-ELECTRA-discriminator', type=str)
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--max_epoch', default=30, type=int)
     parser.add_argument('--shuffle', default=True)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
-    parser.add_argument('--train_path', default='./data/e_df.csv')
+    parser.add_argument('--train_path', default='./data/r02_e_no_c_05_df.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/dev.csv')
     parser.add_argument('--predict_path', default='./data/test.csv')
