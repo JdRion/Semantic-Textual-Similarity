@@ -18,7 +18,6 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from sentence_transformers import losses
-
 # os.chdir("/opt/ml")
 wandb_dict = {
     'gwkim_22':'f631be718175f02da4e2f651225fadb8541b3cd9',
@@ -91,8 +90,7 @@ class Dataloader(pl.LightningDataModule):
 
         # 타겟 데이터가 없으면 빈 배열을 리턴합니다.
         try:
-            targets = data[self.target_columns] / 5.0
-            targets = targets.values.tolist()
+            targets = data[self.target_columns].values.tolist()
         except:
             targets = []
         # 텍스트 데이터를 전처리합니다.
