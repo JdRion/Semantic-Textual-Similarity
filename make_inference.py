@@ -1,35 +1,13 @@
 import argparse
 import os
-from xml.dom.minidom import Entity
 import pandas as pd
 from tqdm.auto import tqdm
-from datetime import timedelta, datetime
-
-from omegaconf import OmegaConf
-
-import wandb
 import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
 import re
-
-from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-
-
-# os.chdir("/opt/ml")
-wandb_dict = {
-    'gwkim_22':'f631be718175f02da4e2f651225fadb8541b3cd9',
-    'rion_':'0d57da7f9222522c1a3dbb645a622000e0344d36',
-    'daniel0801':'b8c4d92272716adcb1b2df6597cfba448854ff90',
-    'seokhee':'c79d118b300d6cff52a644b8ae6ab0933723a59f',
-    'dk100':'263b9353ecef00e35bdf063a51a82183544958cc'
-}
-
-time_ = datetime.now() + timedelta(hours=9)
-time_now = time_.strftime("%m%d%H%M")
+os.chdir("/opt/ml")
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
@@ -115,12 +93,12 @@ class Dataloader(pl.LightningDataModule):
             test_inputs, test_targets = self.preprocessing(test_data)
             self.test_dataset = Dataset(test_inputs, test_targets)
 
-            predict_data = pd.read_csv(self.predict_path)
+            predict_data = pd.read_csv(self.test_path)
             predict_inputs, predict_targets = self.preprocessing(predict_data)
             self.predict_dataset = Dataset(predict_inputs, [])
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=cfg.data.shuffle)
+        return torch.utils.data.DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=args.shuffle)
 
     def val_dataloader(self):
         return torch.utils.data.DataLoader(self.val_dataset, batch_size=self.batch_size)
@@ -133,18 +111,18 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, config):
+    def __init__(self, model_name, lr):
         super().__init__()
         self.save_hyperparameters()
 
-        self.model_name = config.model.model_name
-        self.lr = config.train.learning_rate
+        self.model_name = model_name
+        self.lr = lr
 
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=self.model_name, num_labels=1)
+            pretrained_model_name_or_path=model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.MSELoss()
+        self.loss_func = torch.nn.L1Loss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -182,7 +160,7 @@ class Model(pl.LightningModule):
         return logits.squeeze()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)        # AdamW -> RAdam
         return optimizer
 
 
@@ -191,54 +169,45 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config',type=str,default='base_config')
-    args, _ = parser.parse_known_args()
-    
-    cfg = OmegaConf.load(f'./config/{args.config}.yaml')
+    parser.add_argument('--model_name', default='snunlp/KR-ELECTRA-discriminator', type=str)
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--max_epoch', default=0, type=int)
+    parser.add_argument('--shuffle', default=True)
+    parser.add_argument('--learning_rate', default=1e-5, type=float)
+    parser.add_argument('--train_path', default='./data/e_df.csv')
+    parser.add_argument('--dev_path', default='./data/dev.csv')
+    parser.add_argument('--test_path', default='./data/dev.csv')
+    parser.add_argument('--predict_path', default='./data/test.csv')
+    args = parser.parse_args()
 
-    #os.environ["WANDB_API_KEY"] = wandb_dict[cfg.wandb.wandb_username]
-    wandb.login(key = wandb_dict[cfg.wandb.wandb_username])
-    model_name_ch = re.sub('/','_',cfg.model.model_name)
-    wandb_logger = WandbLogger(
-                log_model="all",
-                name=f'{cfg.model.saved_name}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
-                project=cfg.wandb.wandb_project,
-                entity=cfg.wandb.wandb_entity
-                )
+    #model_name_ch = re.sub('/','_',args.model_name)
 
-    # Checkpoint
-    checkpoint_callback = ModelCheckpoint(monitor='val_pearson',
-                                        save_top_k=1,
-                                        save_last=True,
-                                        save_weights_only=False,
-                                        verbose=False,
-                                        mode='max')
-
-    # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='max')
-    
     # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
-                            cfg.path.test_path, cfg.path.predict_path)
-    model = Model(cfg)
+    dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
+                            args.test_path, args.predict_path)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(
-        gpus=-1, 
-        max_epochs=cfg.train.max_epoch, 
-        log_every_n_steps=cfg.train.logging_step,
-        logger=wandb_logger,    # W&B integration
-        callbacks = [checkpoint_callback, earlystopping]
-        )
+    trainer = pl.Trainer(gpus=1, max_epochs=args.max_epoch, log_every_n_steps=1)
 
-    # Train part
-    trainer.fit(model=model, datamodule=dataloader)
-    trainer.test(model=model, datamodule=dataloader)
+    # Inference part
+    # 저장된 모델로 예측을 진행합니다.
+    
+    output_dir_path = 'code/output'
+    output_path = os.path.join(output_dir_path, 'snunlp_KR-ELECTRA-discriminator_11011110_model.pt')
 
-    # 학습이 완료된 모델을 저장합니다.
-    output_dir_path = 'output'
-    if not os.path.exists(output_dir_path):
-        os.makedirs(output_dir_path)
+    model = torch.load(output_path)
+    predictions = trainer.predict(model=model, datamodule=dataloader)
 
-    output_path = os.path.join(output_dir_path, f'{model_name_ch}_{time_now}_model.pt')
-    torch.save(model, output_path)
+    # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.
+    predictions = list(round(float(i), 1) for i in torch.cat(predictions))
+
+    # output 형식을 불러와서 예측된 결과로 바꿔주고, output.csv로 출력합니다.
+    output = pd.read_csv('./data/dev.csv')
+    output['pred'] = predictions
+    
+    result_dir_path = 'result'
+    if not os.path.exists(result_dir_path):
+        os.makedirs(result_dir_path)
+    
+    result_path = os.path.join(result_dir_path, f'output_c.csv')
+    output.to_csv(result_path, index=False)

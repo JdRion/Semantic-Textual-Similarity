@@ -1,5 +1,5 @@
 path:
-    train_path: ../data/e_df.csv
+    train_path: ../data/nof.csv
     dev_path: ../data/dev.csv
     test_path: ../data/dev.csv
     predict_path: ../data/test.csv
@@ -10,14 +10,14 @@ data:
     
 model:
     model_name: snunlp/KR-ELECTRA-discriminator
-    saved_name: electra/base
+    saved_name: electra/edf/50/5
 
 train:
     seed: 42
     gpus: 1
     batch_size: 32
     max_epoch: 30
-    learning_rate: 2e-5
+    learning_rate: 1e-5
     logging_step: 1
 wandb:
     wandb_username: rion_

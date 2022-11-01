@@ -1,5 +1,5 @@
 path:
-    train_path: ../data/e_df.csv
+    train_path: ../data/nH.csv
     dev_path: ../data/dev.csv
     test_path: ../data/dev.csv
     predict_path: ../data/test.csv
@@ -9,14 +9,14 @@ data:
     augmentation: # adea, bt 등등
     
 model:
-    model_name: snunlp/KR-ELECTRA-discriminator
-    saved_name: electra/base
+    model_name: klue/roberta-base
+    saved_name: klue/roberta-base/25
 
 train:
     seed: 42
     gpus: 1
     batch_size: 32
-    max_epoch: 30
+    max_epoch: 4
     learning_rate: 2e-5
     logging_step: 1
 wandb:
