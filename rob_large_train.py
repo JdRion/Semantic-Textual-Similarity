@@ -141,10 +141,10 @@ class Model(pl.LightningModule):
         self.lr = config.train.learning_rate
 
         # 사용할 모델을 호출합니다.
-        config_ = transformers.AutoConfig.from_pretrained(config.model_name)
+        config_ = transformers.AutoConfig.from_pretrained(self.model_name)
         config_.num_labels = 1
         config_.hidden_dropout_prob = 0.1
-        config_.attention_probs_dropout_prob = config.attention_drop_out_p
+        config_.attention_probs_dropout_prob = 0.1
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=self.model_name, config=config_)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
@@ -194,7 +194,7 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config',type=str,default='roberta_large')
+    parser.add_argument('--config',type=str,default='xlm_roberta_with_aug')
     args, _ = parser.parse_known_args()
     
     cfg = OmegaConf.load(f'./config/{args.config}.yaml')

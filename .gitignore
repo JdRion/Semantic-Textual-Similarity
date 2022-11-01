@@ -1,6 +1,5 @@
 .ipynb_checkpoints
 lightning_logs
-*.yaml
 wandb
 sts
 sts1
