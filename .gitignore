@@ -9,6 +9,9 @@ sts
 wandb
 nohub.out
 output
+nohup.out
+ELECTRA
+config
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode
