@@ -8,3 +8,5 @@ config
 *.pt
 output
 config
+.ipynb_checkpoints/
+Final_STS

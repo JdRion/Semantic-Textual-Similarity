@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFIGS=('xlm_roberta_with_aug')
+CONFIGS=('klue_roberta_large_e_df' 'klue_roberta_large_nof')
 
 config_length=${#CONFIGS[@]}
 

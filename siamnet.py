@@ -6,18 +6,19 @@ from tqdm.auto import tqdm
 from datetime import timedelta, datetime
 
 from omegaconf import OmegaConf
-import torch.nn as nn
+from sentence_transformers import SentenceTransformer
 import wandb
 import transformers
 import torch
 import torchmetrics
 import pytorch_lightning as pl
 import re
-from sentence_transformers import SentenceTransformer
+import transformers
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from sentence_transformers import losses
+from transformers import RobertaForSequenceClassification
+
 # os.chdir("/opt/ml")
 wandb_dict = {
     'gwkim_22':'f631be718175f02da4e2f651225fadb8541b3cd9',
@@ -29,10 +30,7 @@ wandb_dict = {
 
 time_ = datetime.now() + timedelta(hours=9)
 time_now = time_.strftime("%m%d%H%M")
-def mean_pooling(model_output, attention_mask):
-    token_embeddings = model_output[0] #First element of model_output contains all token embeddings
-    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
         self.inputs = inputs
@@ -42,9 +40,9 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # 정답이 있다면 else문을, 없다면 if문을 수행합니다
         if len(self.targets) == 0:
-            return [torch.tensor(self.inputs[0][idx]), torch.tensor(self.inputs[1][idx])]
+            return torch.tensor(self.inputs[idx])
         else:
-            return [torch.tensor(self.inputs[0][idx]), torch.tensor(self.inputs[1][idx])], torch.tensor(self.targets[idx])
+            return torch.tensor(self.inputs[idx]), torch.tensor(self.targets[idx])
 
     # 입력하는 개수만큼 데이터를 사용합니다
     def __len__(self):
@@ -52,7 +50,7 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class Dataloader(pl.LightningDataModule):
-    def __init__(self, model_name, batch_size, shuffle, train_path, dev_path, test_path, predict_path):
+    def __init__(self, model_name, batch_size, shuffle, train_path, dev_path, test_path, predict_path, s_bert):
         super().__init__()
         self.model_name = model_name
         self.batch_size = batch_size
@@ -68,21 +66,20 @@ class Dataloader(pl.LightningDataModule):
         self.test_dataset = None
         self.predict_dataset = None
 
-        self.tokenizer = transformers.AutoTokenizer.from_pretrained('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
+        #self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_name, max_length=160)
+        self.sbert = s_bert
         self.target_columns = ['label']
         self.delete_columns = ['id']
         self.text_columns = ['sentence_1', 'sentence_2']
 
     def tokenizing(self, dataframe):
-        s1 = []
-        s2 = []
+        data = []
         for idx, item in tqdm(dataframe.iterrows(), desc='tokenizing', total=len(dataframe)):
             # 두 입력 문장을 [SEP] 토큰으로 이어붙여서 전처리합니다.
-            s1_outputs = self.tokenizer(item['sentence_1'], add_special_tokens=True, padding='max_length', truncation=True, return_tensors='pt')
-            s2_outputs = self.tokenizer(item['sentence_2'], add_special_tokens=True, padding='max_length', truncation=True, return_tensors='pt')
-            s1.append(s1_outputs)
-            s2.append(s2_outputs)
-        return s1, s2
+            text = '[SEP]'.join([item[text_column] for text_column in self.text_columns])
+            output = self.sbert.encode(text)
+            data.append(output)
+        return data
 
     def preprocessing(self, data):
         # 안쓰는 컬럼을 삭제합니다.
@@ -96,7 +93,7 @@ class Dataloader(pl.LightningDataModule):
         # 텍스트 데이터를 전처리합니다.
         inputs = self.tokenizing(data)
 
-        return inputs,  targets
+        return inputs, targets
 
     def setup(self, stage='fit'):
         if stage == 'fit':
@@ -137,45 +134,41 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, config):
+    def __init__(self, config, max_seq_length):
         super().__init__()
         self.save_hyperparameters()
 
         self.model_name = config.model.model_name
         self.lr = config.train.learning_rate
 
-        # 사용할 모델을 호출합니다.
-        self.plm = transformers.AutoModel.from_pretrained('snunlp/KR-SBERT-V40K-klueNLI-augSTS')
+        # # 사용할 모델을 호출합니다.
+        # config_ = transformers.AutoConfig.from_pretrained(self.model_name)
+        # config_.num_labels = 1
+        # config_.hidden_dropout_prob = 0.1
+        # config_.attention_probs_dropout_prob = 0.1
+        from transformers import RobertaConfig
+        config = RobertaConfig()
+        config.num_labels=1
+        config.max_position_embeddings = max_seq_length
+        self.plm = RobertaForSequenceClassification.from_pretrained('klue/roberta-large',config=config)
+        #self.plm.main_input_name = 'inputs_embeds'
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.MSELoss()
-        self.cos_score = nn.Sequential(nn.Identity())
-    def forward(self, x):
-        x = self.plm(x)
+        #self.loss_func = torch.nn.MSELoss()
 
+    def forward(self, input, labels):
+        x = self.plm(input, labels=labels)
         return x
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        with torch.no_grad():
-            output_1 = self(**x[0])
-            output_2 = self(**x[1])
-        sentence_embeddings_1 = mean_pooling(output_1, x[0]['attention_mask'])
-        sentence_embeddings_2 = mean_pooling(output_2, x[1]['attention_mask'])
-        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
-        logits = self.cos_score(cos_sim)
-        loss = self.loss_func(logits, y.float())
+        loss, logits = self(x, y.float())[:2]
         self.log("train_loss", loss)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        output_1 = self(x[0][0])
-        output_2 = self(x[1][0])
-        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
-        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
-        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
-        logits = self.cos_score(cos_sim)
-        loss = self.loss_func(logits, y.float())
+        loss, logits = self(x, y.float())[:2]
         self.log("val_loss", loss)
 
         self.log("val_pearson", torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze()))
@@ -184,21 +177,14 @@ class Model(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         x, y = batch
-        output_1 = self(x[0][0])
-        output_2 = self(x[1][0])
-        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
-        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
-        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
-        logits = self.cos_score(cos_sim)
+        loss, logits = self(x, y.float())[:2]
+
         self.log("test_pearson", torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze()))
 
     def predict_step(self, batch, batch_idx):
-        output_1 = self(x[0][0])
-        output_2 = self(x[1][0])
-        sentence_embeddings_1 = mean_pooling(output_1, x[0][1])
-        sentence_embeddings_2 = mean_pooling(output_2, x[1][1])
-        cos_sim = torch.cosine_similarity(sentence_embeddings_1, sentence_embeddings_2)
-        logits = self.cos_score(cos_sim)
+        x = batch
+        logits = self(x, labels=None)[1]
+
         return logits.squeeze()
 
     def configure_optimizers(self):
@@ -211,7 +197,7 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config',type=str,default='base_config')
+    parser.add_argument('--config',type=str,default='klue_roberta_large_nof')
     args, _ = parser.parse_known_args()
     
     cfg = OmegaConf.load(f'./config/{args.config}.yaml')
@@ -228,19 +214,21 @@ if __name__ == '__main__':
 
     # Checkpoint
     checkpoint_callback = ModelCheckpoint(monitor='val_pearson',
-                                        save_top_k=3,
+                                        save_top_k=1,
                                         save_last=True,
-                                        save_weights_only=True,
+                                        save_weights_only=False,
                                         verbose=False,
                                         mode='max')
 
     # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_pearson', patience=3, mode='max')
-    
+    earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='max')
+    sbert_model_name = 'snunlp/KR-SBERT-V40K-klueNLI-augSTS'
+    sbert_model = SentenceTransformer(sbert_model_name)
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
-                            cfg.path.test_path, cfg.path.predict_path)
-    model = Model(cfg)
+                            cfg.path.test_path, cfg.path.predict_path, s_bert=sbert_model)
+
+    model = Model(cfg, max_seq_length=sbert_model.max_seq_length)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(

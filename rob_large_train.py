@@ -140,15 +140,15 @@ class Model(pl.LightningModule):
         self.model_name = config.model.model_name
         self.lr = config.train.learning_rate
 
-        # 사용할 모델을 호출합니다.
-        config_ = transformers.AutoConfig.from_pretrained(self.model_name)
-        config_.num_labels = 1
-        config_.hidden_dropout_prob = 0.1
-        config_.attention_probs_dropout_prob = 0.1
+        # # 사용할 모델을 호출합니다.
+        # config_ = transformers.AutoConfig.from_pretrained(self.model_name)
+        # config_.num_labels = 1
+        # config_.hidden_dropout_prob = 0.1
+        # config_.attention_probs_dropout_prob = 0.1
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
-            pretrained_model_name_or_path=self.model_name, config=config_)
+            pretrained_model_name_or_path=self.model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.MSELoss   ()
+        self.loss_func = torch.nn.MSELoss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -210,15 +210,15 @@ if __name__ == '__main__':
                 )
 
     # Checkpoint
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                        save_top_k=3,
+    checkpoint_callback = ModelCheckpoint(monitor='val_pearson',
+                                        save_top_k=1,
                                         save_last=True,
-                                        save_weights_only=True,
+                                        save_weights_only=False,
                                         verbose=False,
-                                        mode='min')
+                                        mode='max')
 
     # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+    earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='max')
     
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
