@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFIGS=("electra_config" )
+CONFIGS=("electra_config_nof" "electra_config_16" "electra_config_16_nof" )
 
 config_length=${#CONFIGS[@]}
 

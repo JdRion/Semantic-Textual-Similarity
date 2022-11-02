@@ -10,14 +10,14 @@ data:
     
 model:
     model_name: snunlp/KR-ELECTRA-discriminator
-    saved_name: electra/base
+    saved_name: electra
 
 train:
     seed: 42
     gpus: 1
     batch_size: 32
     max_epoch: 30
-    learning_rate: 2e-5
+    learning_rate: 3e-5
     logging_step: 1
 wandb:
     wandb_username: rion_

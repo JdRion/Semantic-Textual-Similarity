@@ -194,9 +194,11 @@ if __name__ == '__main__':
     
     output_dir_path = 'code/sts/4pvepgju/checkpoints'
     output_path = os.path.join(output_dir_path, 'epoch=5-step=3498.ckpt')
-
+    """
     model = Model(args.model_name, args.learning_rate)
     model.load_from_checkpoint(output_path)
+    """
+    model = Model.load_from_checkpoint()
     predictions = trainer.predict(model=model, datamodule=dataloader)
 
     # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.

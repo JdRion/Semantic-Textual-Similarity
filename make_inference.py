@@ -192,8 +192,8 @@ if __name__ == '__main__':
     # Inference part
     # 저장된 모델로 예측을 진행합니다.
     
-    output_dir_path = 'code/output'
-    output_path = os.path.join(output_dir_path, 'snunlp_KR-ELECTRA-discriminator_11011110_model.pt')
+    output_dir_path = 'code/ELECTRA'
+    output_path = os.path.join(output_dir_path, 'epoch=5-step=6246.ckpt')
 
     model = torch.load(output_path)
     predictions = trainer.predict(model=model, datamodule=dataloader)

@@ -173,7 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--max_epoch', default=0, type=int)
     parser.add_argument('--shuffle', default=True)
-    parser.add_argument('--learning_rate', default=1e-5, type=float)
+    parser.add_argument('--learning_rate', default=3e-5, type=float)
     parser.add_argument('--train_path', default='./data/e_df.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/dev.csv')
@@ -191,11 +191,16 @@ if __name__ == '__main__':
 
     # Inference part
     # 저장된 모델로 예측을 진행합니다.
-    
-    output_dir_path = 'output'
-    output_path = os.path.join(output_dir_path, 'klue_roberta-base_10272227_model.pt')
 
-    model = torch.load(output_path)
+    """ # 체크포인트 용
+    output_dir_path = '/opt/ml/code/ELECTRA/3ryk0irb/checkpoints/epoch=5-step=6246.ckpt'
+    model = Model.load_from_checkpoint(model_name='snunlp/KR-ELECTRA-discriminator',lr=3e-5,checkpoint_path=output_dir_path)
+    """
+    
+    output_dir_path = 'code/output'
+    output_path = os.path.join(output_dir_path, 'snunlp_KR-ELECTRA-discriminator_11021806_model.pt')
+
+    model = torch.load(output_path)    
     predictions = trainer.predict(model=model, datamodule=dataloader)
 
     # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.
@@ -209,5 +214,5 @@ if __name__ == '__main__':
     if not os.path.exists(result_dir_path):
         os.makedirs(result_dir_path)
     
-    result_path = os.path.join(result_dir_path, f'output_c.csv')
+    result_path = os.path.join(result_dir_path, f'output_electra.csv')
     output.to_csv(result_path, index=False)
