@@ -169,12 +169,12 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='snunlp/KR-ELECTRA-discriminator', type=str)
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--model_name', default='klue/roberta-large', type=str)
+    parser.add_argument('--batch_size', default=8, type=int)
     parser.add_argument('--max_epoch', default=0, type=int)
     parser.add_argument('--shuffle', default=True)
-    parser.add_argument('--learning_rate', default=3e-5, type=float)
-    parser.add_argument('--train_path', default='./data/e_df.csv')
+    parser.add_argument('--learning_rate', default=7e-6, type=float)
+    parser.add_argument('--train_path', default='./data/nof.csv')
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/dev.csv')
     parser.add_argument('--predict_path', default='./data/test.csv')
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     """
     
     output_dir_path = 'code/output'
-    output_path = os.path.join(output_dir_path, 'snunlp_KR-ELECTRA-discriminator_11021806_model.pt')
+    output_path = os.path.join(output_dir_path, 'klue_roberta-large_11030132_model.pt')
 
     model = torch.load(output_path)    
     predictions = trainer.predict(model=model, datamodule=dataloader)
@@ -214,5 +214,5 @@ if __name__ == '__main__':
     if not os.path.exists(result_dir_path):
         os.makedirs(result_dir_path)
     
-    result_path = os.path.join(result_dir_path, f'output_electra.csv')
+    result_path = os.path.join(result_dir_path, f'output_r_large.csv')
     output.to_csv(result_path, index=False)

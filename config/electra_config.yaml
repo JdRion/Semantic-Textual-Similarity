@@ -13,7 +13,7 @@ model:
     saved_name: electra
 
 train:
-    seed: 42
+    seed: 21
     gpus: 1
     batch_size: 32
     max_epoch: 30
