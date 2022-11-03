@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFIGS=("electra_e_no_c_05_df_config" "electra_r02_e_no_c_05_df_config")
+CONFIGS=("krelectra_nof_16_3_seed1")
 
 config_length=${#CONFIGS[@]}
 

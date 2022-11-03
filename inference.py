@@ -171,8 +171,8 @@ if __name__ == '__main__':
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='klue/roberta-base', type=str)
-    parser.add_argument('--batch_size', default=16, type=int)
+    parser.add_argument('--model_name', default='snunlp/KR-ELECTRA-discriminator', type=str)
+    parser.add_argument('--batch_size', default=32, type=int)
     parser.add_argument('--max_epoch', default=30, type=int)
     parser.add_argument('--shuffle', default=True)
     parser.add_argument('--learning_rate', default=1e-5, type=float)
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     parser.add_argument('--dev_path', default='./data/dev.csv')
     parser.add_argument('--test_path', default='./data/test.csv')
     parser.add_argument('--predict_path', default='./data/test.csv')
-    parser.add_argument('--time_now', default='10261724')
+    parser.add_argument('--time_now', default='11031434')
     args = parser.parse_args()
 
     # dataloader와 model을 생성합니다.
@@ -196,11 +196,13 @@ if __name__ == '__main__':
     model_name_ch = re.sub('/','_',args.model_name)
 
     
-    output_dir_path = 'output'
-    # output_path = os.path.join(output_dir_path, f'{model_name_ch}_{args.time_now}_model.pt')
-    output_path = os.path.join(output_dir_path, 'klue_roberta-base_10280151_model.pt')
-
-    model = torch.load(output_path)
+    # output_dir_path = 'output'
+    # output_dir_path = 'code/level1_semantictextsimilarity_nlp-level1-nlp-05/output'
+    # output_path = os.path.join(output_dir_path, 'snunlp_KR-ELECTRA-discriminator_11011547_model.pt')
+    # model = torch.load(output_path)
+    output_dir_path = '/opt/ml/code/level1_semantictextsimilarity_nlp-level1-nlp-05/ELECTRA/1plaxo5d/checkpoints/epoch=2-step=3123.ckpt'
+    model = Model.load_from_checkpoint(model_name='snunlp/KR-ELECTRA-discriminator',lr=3e-5,checkpoint_path=output_dir_path)
+    
     predictions = trainer.predict(model=model, datamodule=dataloader)
 
     # 예측된 결과를 형식에 맞게 반올림하여 준비합니다.

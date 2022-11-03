@@ -210,14 +210,14 @@ if __name__ == '__main__':
                 entity=args.wandb_entity,
                 )
     # Checkpoint
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                        save_top_k=3,
+    checkpoint_callback = ModelCheckpoint(monitor='val_pearson',
+                                        save_top_k=1,
                                         save_last=True,
-                                        save_weights_only=True,
+                                        save_weights_only=False,
                                         verbose=False,
                                         mode='min')
     # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+    earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='min')
     # dataloader와 model을 생성합니다
     dataloader = Dataloader(args.model_name, args.batch_size, args.shuffle, args.train_path, args.dev_path,
                             args.test_path, args.predict_path)

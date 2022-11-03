@@ -139,12 +139,13 @@ class Model(pl.LightningModule):
 
         self.model_name = config.model.model_name
         self.lr = config.train.learning_rate
+        pl.seed_everything(config.train.seed)
 
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=self.model_name, num_labels=1)
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.L1Loss()
+        self.loss_func = torch.nn.MSELoss()
 
     def forward(self, x):
         x = self.plm(x)['logits']
@@ -184,7 +185,7 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         return optimizer
-
+from transformers import TrainingArguments
 
 if __name__ == '__main__':
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
@@ -207,30 +208,31 @@ if __name__ == '__main__':
                 )
 
     # Checkpoint
-    checkpoint_callback = ModelCheckpoint(monitor='val_loss',
-                                        save_top_k=3,
+    checkpoint_callback = ModelCheckpoint(monitor='val_pearson',
+                                        save_top_k=1,
                                         save_last=True,
-                                        save_weights_only=True,
+                                        save_weights_only=False,
                                         verbose=False,
-                                        mode='min')
+                                        mode='max')
 
     # Earlystopping
-    earlystopping = EarlyStopping(monitor='val_loss', patience=3, mode='min')
+    earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='max')
     
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
                             cfg.path.test_path, cfg.path.predict_path)
     model = Model(cfg)
 
+    training_args = TrainingArguments(seed=args.train.seed)
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(
         gpus=-1, 
         max_epochs=cfg.train.max_epoch, 
         log_every_n_steps=cfg.train.logging_step,
         logger=wandb_logger,    # W&B integration
-        callbacks = [checkpoint_callback, earlystopping]
+        callbacks = [checkpoint_callback, earlystopping],
+        args = training_args
         )
-
     # Train part
     trainer.fit(model=model, datamodule=dataloader)
     trainer.test(model=model, datamodule=dataloader)
