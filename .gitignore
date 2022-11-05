@@ -1,17 +1,13 @@
 key
-make_DB.ipynb
-back_translation.ipynb
 lightning_logs/
 model.pt
 .DS_Store
-requirements.txt
 sts
 wandb
 nohub.out
 output
 nohup.out
 ELECTRA
-config
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,visualstudiocode

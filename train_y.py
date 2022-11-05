@@ -227,7 +227,6 @@ if __name__ == '__main__':
         gpus=-1, 
         max_epochs=cfg.train.max_epoch, 
         log_every_n_steps=cfg.train.logging_step,
-        seed=cfg.train.seed,
         logger=wandb_logger,    # W&B integration
         callbacks = [checkpoint_callback, earlystopping]
         )

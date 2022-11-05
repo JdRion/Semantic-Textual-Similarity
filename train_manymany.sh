@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFIGS=("electra_config" )
+CONFIGS=("beomi" )
 
 config_length=${#CONFIGS[@]}
 

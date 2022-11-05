@@ -10,13 +10,13 @@ data:
     
 model:
     model_name: beomi/KcELECTRA-base
-    saved_name: beomi/electra
+    saved_name: beomi/electra/
 
 train:
-    seed: 21
+    seed: 42
     gpus: 1
     batch_size: 32
-    max_epoch: 30
+    max_epoch: 10
     learning_rate: 3e-5
     logging_step: 1
 wandb:

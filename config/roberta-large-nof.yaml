@@ -1,25 +1,26 @@
+# 각자 Path 맞게 고치기
 path:
     train_path: ../data/nof.csv
     dev_path: ../data/dev.csv
     test_path: ../data/dev.csv
     predict_path: ../data/test.csv
-
+# 안건들여도 됨
 data:
     shuffle: True
     augmentation: # adea, bt 등등
-    
+# saved_name에 사용된 Data이름 담기     
 model:
-    model_name: beomi/KcELECTRA-base
-    saved_name: beomi/electra
-
+    model_name: klue/roberta-large
+    saved_name: klue/roberta-large/best
+# Learning Rate 고치기 각자에 맞게
 train:
     seed: 21
     gpus: 1
-    batch_size: 32
+    batch_size: 8
     max_epoch: 30
-    learning_rate: 3e-5
+    learning_rate: 7e-6
     logging_step: 1
 wandb:
     wandb_username: rion_
-    wandb_project: sts
+    wandb_project: Roberta-large
     wandb_entity: sts_et

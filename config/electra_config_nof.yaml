@@ -9,11 +9,11 @@ data:
     augmentation: # adea, bt 등등
     
 model:
-    model_name: beomi/KcELECTRA-base
-    saved_name: beomi/electra
+    model_name: snunlp/KR-ELECTRA-discriminator
+    saved_name: electra
 
 train:
-    seed: 21
+    seed: 42
     gpus: 1
     batch_size: 32
     max_epoch: 30
@@ -21,5 +21,5 @@ train:
     logging_step: 1
 wandb:
     wandb_username: rion_
-    wandb_project: sts
+    wandb_project: ELECTRA
     wandb_entity: sts_et
