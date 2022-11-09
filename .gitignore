@@ -5,5 +5,9 @@ sts
 output
 nohup.out
 requirements.txt
+Final_STS
+Roberta-large
+config
+.ipynb_checkpoints
 resultoutput
 result
