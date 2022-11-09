@@ -1,5 +1,5 @@
 #!/bin/bash
-CONFIGS=("krelectra_nof_16_3_seed1")
+CONFIGS=("monologg_edf_16_1 copy")
 
 config_length=${#CONFIGS[@]}
 

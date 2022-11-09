@@ -17,6 +17,7 @@ import re
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from sklearn.model_selection import KFold
 
 
 # os.chdir("/opt/ml")
@@ -50,11 +51,12 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class Dataloader(pl.LightningDataModule):
-    def __init__(self, model_name, batch_size, shuffle, train_path, dev_path, test_path, predict_path):
+    def __init__(self, model_name, batch_size, shuffle, train_path, dev_path, test_path, predict_path,k):
         super().__init__()
         self.model_name = model_name
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.k = k
 
         self.train_path = train_path
         self.dev_path = dev_path
@@ -99,6 +101,15 @@ class Dataloader(pl.LightningDataModule):
             # 학습 데이터와 검증 데이터셋을 호출합니다
             train_data = pd.read_csv(self.train_path)
             val_data = pd.read_csv(self.dev_path)
+            con_data = pd.concat([train_data,val_data])
+            all_data = Dataset(con_data)
+
+            st_fold = KFold(shuffle=True, random_state=42)
+            all_splits = [k for k in st_fold.split(all_data)]
+            train_index, val_index = all_splits[self.k]
+            train_index, val_index = train_index.tolist(), val_index.tolist()
+
+            train_data, val_data = all_data[train_index], all_data[val_index]
 
             # 학습데이터 준비
             train_inputs, train_targets = self.preprocessing(train_data)
@@ -139,7 +150,6 @@ class Model(pl.LightningModule):
 
         self.model_name = config.model.model_name
         self.lr = config.train.learning_rate
-        # pl.seed_everything(config.train.seed)
 
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
@@ -185,7 +195,7 @@ class Model(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         return optimizer
-from transformers import TrainingArguments
+
 
 if __name__ == '__main__':
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
@@ -202,7 +212,7 @@ if __name__ == '__main__':
     model_name_ch = re.sub('/','_',cfg.model.model_name)
     wandb_logger = WandbLogger(
                 log_model="all",
-                name=f'{model_name_ch}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
+                name=f'{cfg.model.saved_name}_{cfg.train.batch_size}_{cfg.train.learning_rate}_{time_now}',
                 project=cfg.wandb.wandb_project,
                 entity=cfg.wandb.wandb_entity
                 )
@@ -218,22 +228,28 @@ if __name__ == '__main__':
     # Earlystopping
     earlystopping = EarlyStopping(monitor='val_pearson', patience=2, mode='max')
     
-    # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
-                            cfg.path.test_path, cfg.path.predict_path)
+    #kfold
     model = Model(cfg)
+    for k in range(5):
+        dataloader = Dataloader(cfg.model.model_name, cfg.train.batch_size, cfg.data.shuffle, cfg.path.train_path, cfg.path.dev_path,
+                            cfg.path.test_path, cfg.path.predict_path,k)
+        if k == 4:
+            trainer = pl.Trainer(
+                gpus=-1, 
+                max_epochs=1, 
+                log_every_n_steps=5,
+                logger=wandb_logger,    # W&B integration
+                callbacks = [checkpoint_callback, earlystopping]
+                )
+        else:
+            trainer = pl.Trainer(
+                gpus=-1, 
+                max_epochs=1, 
+                log_every_n_steps=5,
+                callbacks = [checkpoint_callback, earlystopping]
+                )                    
+        trainer.fit(model=model, datamodule=dataloader)
 
-    # training_args = TrainingArguments(seed=args.train.seed)
-    # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(
-        gpus=-1, 
-        max_epochs=cfg.train.max_epoch, 
-        log_every_n_steps=cfg.train.logging_step,
-        logger=wandb_logger,    # W&B integration
-        callbacks = [checkpoint_callback, earlystopping]
-        )
-    # Train part
-    trainer.fit(model=model, datamodule=dataloader)
     trainer.test(model=model, datamodule=dataloader)
 
     # 학습이 완료된 모델을 저장합니다.
