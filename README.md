@@ -7,8 +7,9 @@
 </aside>
 
 ### TimeLine
+- 대회기간: 2022.10.26 ~ 2022.11.03
 
-![Untitled](https://s3.us-west-2.amazonaws.com/secure.notion-static.com/8c31dd14-8481-4733-8767-d13a6afa9076/Untitled.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=AKIAT73L2G45EIPT3X45%2F20221201%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20221201T083306Z&X-Amz-Expires=86400&X-Amz-Signature=be620327ae19cc6b55d440dd059d82d532f7a6795c4424638f16735a789e61a9&X-Amz-SignedHeaders=host&response-content-disposition=filename%3D%22Untitled.png%22&x-id=GetObject)
+![Untitled (1)](https://user-images.githubusercontent.com/86893209/219698965-cece7f2f-8792-438d-88f0-ea4a944d908f.png)
 
 ### 협업 방식
 
